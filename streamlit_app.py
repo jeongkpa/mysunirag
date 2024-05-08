@@ -22,6 +22,11 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.callbacks import get_openai_callback
 from langchain.memory import StreamlitChatMessageHistory
 
+# Langsmith api 환경변수 설정
+os.environ["LANGCHAIN_TRACING_V2"]="true"
+os.environ["LANGCHAIN_ENDPOINT"]="https://api.smith.langchain.com"
+
+
 
 def main():
     st.set_page_config(
@@ -46,10 +51,20 @@ def main():
         )
         uploaded_files = st.file_uploader("Upload your file", type=['pdf', 'docx', 'pptx'], accept_multiple_files=True)
         openai_api_key = st.text_input("OpenAI API Key", key="chatbot_api_key", type="password")
+        
+        # 환경 변수 입력을 위한 UI 추가
+        langchain_api_key = st.text_input("LangChain API Key", key="langchain_api_key", type="password")
+        langchain_project = st.text_input("LangChain Project", key="langchain_project")
+        
         process = st.button("Process")
+    
+    # 입력받은 환경변수로 설정
+    os.environ["LANGCHAIN_API_KEY"] = langchain_api_key
+    os.environ["LANGCHAIN_PROJECT"] = langchain_project
+
     if process:
-        if not openai_api_key:
-            st.info("Please add your OpenAI API key to continue.")
+        if not openai_api_key or not langchain_api_key or not langchain_project:
+            st.info("Please add all necessary API keys and project information to continue.")
             st.stop()
         files_text = get_text(uploaded_files)
         text_chunks = get_text_chunks(files_text)
@@ -58,7 +73,6 @@ def main():
         st.session_state.conversation = get_conversation_chain(vetorestore, openai_api_key, st.session_state.model_selection)
 
         st.session_state.processComplete = True
-
 
     if 'messages' not in st.session_state:
         st.session_state['messages'] = [{"role": "assistant",
@@ -94,8 +108,7 @@ def main():
 
         # Add assistant message to chat history
         st.session_state.messages.append({"role": "assistant", "content": response})
-
-
+        
 def tiktoken_len(text):
     """
     주어진 텍스트에 대한 토큰 길이를 계산합니다.
